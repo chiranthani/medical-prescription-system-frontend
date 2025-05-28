@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Table,Tag, Button, Modal, Form, Input, Upload, message, Select, TimePicker, Layout } from 'antd';
+import { Table, Tag, Button, Modal, Form, Input, Upload, message, Select, TimePicker, Layout } from 'antd';
 import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 import dayjs from 'dayjs';
 import MenuHeader from '../components/MenuHeader';
 import { Content } from 'antd/es/layout/layout';
 import Swal from 'sweetalert2';
+import QuotationViewModal from '../components/QuotationViewModal';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -45,17 +46,17 @@ const Prescription = () => {
 
     try {
       setLoading(true);
-      const response = await api.post('prescription/create', formData,{
+      const response = await api.post('prescription/create', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
       if (response.data.status) {
         Swal.fire("Success", "" + response.data.message, "success");
-          fetchPrescriptions();
-          setVisible(false);
-          form.resetFields();
-          setFileList([]);
+        fetchPrescriptions();
+        setVisible(false);
+        form.resetFields();
+        setFileList([]);
       } else {
         Swal.fire("Warning", "" + response.data.message, "warning");
       }
@@ -73,31 +74,48 @@ const Prescription = () => {
     { title: 'Delivery Time Slot', dataIndex: 'delivery_time', key: 'delivery_time' },
     { title: 'Note', dataIndex: 'note', key: 'note' },
     {
-    title: 'Created Date',
-    dataIndex: 'created_at',
-    key: 'created_at',
-    render: (text) => new Date(text).toLocaleDateString(),
-  },
-    {
-    title: 'Quotation',
-    key: 'quotation',
-    render: (text, record) => {
-      if (record.is_quotation_created == 0) {
-        return <Tag color="orange"> Not yet</Tag>;
-      } else {
-        return (
-          <Button type="primary" onClick={() => handleViewQuotation(record)}>
-            View
-          </Button>
-        );
-      }
+      title: 'Created Date',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (text) => new Date(text).toLocaleDateString(),
     },
-  },
+   {
+      title: 'Quotation',
+      key: 'quotation',
+      render: (_, record) => {
+        const quotation = record.quotation;
+
+        if (record.is_quotation_created == 0) {
+          return <Tag color="orange">Not yet</Tag>;
+        }
+
+        if (quotation?.user_status == 'accept') {
+          return <Tag color="green">Accepted</Tag>;
+        }
+
+        if (quotation?.user_status == 'reject') {
+          return <Tag color="red">Rejected</Tag>;
+        }
+
+        return (<>
+          {record.is_quotation_created == 1?(<>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button onClick={() => handleViewQuotation(record)}>View</Button>
+            {quotation?.user_status == 'pending'?(<>
+            <Button type="primary" onClick={() => handleStatusChanges(record.quotation.id,'accept')}>Accept</Button>
+            <Button danger onClick={() => handleStatusChanges(record.quotation.id,'reject')}>Reject</Button>
+            </>):(<></>)}
+            
+          </div>
+          </>):(<></>)}
+        </>);
+      },
+    }
   ];
 
 
   const handleViewQuotation = (record) => {
-    setSelectedQuotation(record);
+    setSelectedQuotation(record.quotation);
     setQuotationModalVisible(true);
   };
 
@@ -105,9 +123,9 @@ const Prescription = () => {
     return fileList.length >= 5;
   };
 
-  const handleStatusChanges = async (id,status) => {
+  const handleStatusChanges = async (id, status) => {
     try {
-      const response = await api.put(`quotation/status-change`, {'quotation_id':id,status });
+      const response = await api.put(`quotation/status-change`, { 'quotation_id': id, status });
 
       if (response.data.success) {
         Swal.fire("Success", response.data.message, "success");
@@ -133,16 +151,16 @@ const Prescription = () => {
             </Button>
           </div>
 
-          <Table columns={columns} dataSource={data} rowKey="id" style={{ marginTop: 20 }} scroll={{ x: 'max-content' }}/>
+          <Table columns={columns} dataSource={data} rowKey="id" style={{ marginTop: 20 }} scroll={{ x: 'max-content' }} />
 
-          
+
           <Modal
             title="Create Prescription"
             open={visible}
             onCancel={() => setVisible(false)}
             onOk={() => form.submit()}
             confirmLoading={loading}
-            okText="Save" 
+            okText="Save"
           >
             <Form form={form} layout="vertical" onFinish={handleCreate}>
               <Form.Item
@@ -187,25 +205,13 @@ const Prescription = () => {
             </Form>
           </Modal>
 
-
-          <Modal
-            title="Quotation Details"
-            open={quotationModalVisible}
-            onCancel={() => setQuotationModalVisible(false)}
-            footer={null}
-          >
-            <p><strong>Delivery Address:</strong> {selectedQuotation?.delivery_address}</p>
-            <p><strong>Delivery Time:</strong> {selectedQuotation?.delivery_time}</p>
-            <p><strong>Note:</strong> {selectedQuotation?.note}</p>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <Button danger onClick={() => handleStatusChanges(selectedQuotation.id,'reject')}>Reject</Button>
-              <Button type="primary" onClick={() => handleStatusChanges(selectedQuotation.id,'accept')}>Accept</Button>
-            </div>
-          </Modal>
-
         </div>
       </Content>
+      <QuotationViewModal
+        open={quotationModalVisible}
+        onClose={() => setQuotationModalVisible(false)}
+        quotation={selectedQuotation}
+      />
     </Layout>
 
   );

@@ -1,111 +1,194 @@
-import React, { useState } from 'react';
-import { Modal, Form, AutoComplete, InputNumber, Button, message, Space } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Modal, Form, AutoComplete, InputNumber, Button, Image, Row, Col } from 'antd';
 import api from '../utils/api';
+import Swal from 'sweetalert2';
+import { IMG_BASE_URL } from '../utils/auth';
 
-const CreateQuotationModal = ({ open, onClose, onSave }) => {
-  const [form] = Form.useForm();
-  const [drugOptions, setDrugOptions] = useState([]);
-  const [selectedDrugs, setSelectedDrugs] = useState([]);
+const CreateQuotationModal = ({ open, onClose, onSave, prescription }) => {
+    const [form] = Form.useForm();
+    const [drugOptions, setDrugOptions] = useState([]);
+    const [selectedDrugs, setSelectedDrugs] = useState([]);
+    const [drugLabel, setDrugLabel] = useState('');
 
-  const fetchDrugs = async (searchText) => {
-    try {
-      const res = await api.get(`quotation/drug-list?search=${searchText}`);
-      setDrugOptions(
-        res.data.data.map((list) => ({
-          value: list.drug.name,
-          label: `${list.drug.name} (Stock: ${list.total_stock_qty})`,
-          list, 
-        }))
-      );
-    } catch {
-     
-    }
-  };
 
-  const handleAddDrug = () => {
-    form
-      .validateFields(['drug', 'qty'])
-      .then(({ drug, qty }) => {
-        const selected = drugOptions.find((d) => d.value === drug);
-        if (!selected) {
-          message.error('Please select a valid drug');
-          return;
+    const fetchDrugs = async (searchText) => {
+        try {
+            const res = await api.get(`quotation/drug-list?search=${searchText}`);
+            setDrugOptions(
+                res.data.data.map((list) => ({
+                    value: `${list.drug.name} (Stock: ${list.total_stock_qty})`,
+                    label: `${list.drug.name} (Stock: ${list.total_stock_qty})`,
+                    drug: list,
+                }))
+            );
+        } catch {
+
         }
+    };
 
-        const drugData = selected.drug;
+    const handleAddDrug = () => {
+        form.validateFields(['drug', 'qty']).then(({ drug, qty }) => {
 
-        if (qty > drugData.stock) {
-          message.error(`Only ${drugData.stock} in stock`);
-          return;
+            const selected = drugOptions.find((d) => d.drug.drug_item_id == drug.drug_item_id);
+
+            if (!selected) {
+                Swal.fire("Warning", "Please select a valid drug", "warning");
+                return;
+            }
+
+            if (!qty || isNaN(qty) || parseInt(qty) <= 0) {
+                Swal.fire("Warning", "Please enter a valid quantity", "warning");
+                return;
+            }
+
+            const drugData = selected.drug;
+
+            if (qty > drugData.total_stock_qty) {
+                Swal.fire("Warning", "Only " + drugData.total_stock_qty + " in stock", "warning");
+                return;
+            }
+
+            const alreadyAdded = selectedDrugs.find(
+                (item) => item.drug_id == drugData.drug_item_id
+            );
+
+            if (alreadyAdded) {
+                Swal.fire("Warning", "Drug already added", "warning");
+                return;
+            }
+
+            setSelectedDrugs([...selectedDrugs, {
+                drug_id: drugData.drug_item_id,
+                name: drugData.drug.name,
+                quantity: qty,
+                unit_price: drugData.item_price_rate,
+                total: drugData.item_price_rate * qty,
+                stock_id: drugData.id
+            }]);
+            setDrugLabel('');
+            form.resetFields(['drug', 'qty']);
+        });
+    };
+
+    const handleSubmit = () => {
+        if (selectedDrugs.length == 0) {
+            Swal.fire("Warning", "Please add at least one drug", "warning");
+            return;
         }
+        onSave(selectedDrugs);
+        setSelectedDrugs([]);
+    };
 
-        if (selectedDrugs.find((item) => item.drug.id === drugData.id)) {
-          message.error('Drug already added');
-          return;
-        }
 
-        setSelectedDrugs([...selectedDrugs, { drug: drugData, qty }]);
-        form.resetFields(['drug', 'qty']);
-      });
-  };
+    return (
+        <Modal
+            title="Create Quotation"
+            open={open}
+            onCancel={onClose}
+            onOk={handleSubmit}
+            okText="Save"
+            width={1000}
+        >
+            <Row gutter={24}>
+                <Col span={12}>
+                    <h4>Prescription Images</h4>
+                    <Image.PreviewGroup>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            {prescription?.images?.map((img, idx) => (
+                                <Image
+                                    key={idx}
+                                    src={`${IMG_BASE_URL}${img.image_path}`}
+                                    alt={`Prescription ${idx + 1}`}
+                                    width={100}
+                                    height={100}
+                                    style={{ objectFit: 'cover', border: '1px solid #ddd' }}
+                                />
+                            ))}
+                        </div>
+                    </Image.PreviewGroup>
+                </Col>
+                <Col span={12}>
+                    <Form form={form} layout="vertical">
+                        <Form.Item name="drug" label="Drug" rules={[{ required: true }]}>
+                            <AutoComplete
+                                labelInValue
+                                value={drugLabel}
+                                onChange={(text) => setDrugLabel(text)}
+                                onSelect={(value, option) => {
+                                    form.setFieldsValue({ drug: option.drug });
 
-  const handleSubmit = () => {
-    if (selectedDrugs.length === 0) {
-      message.warning('Please add at least one drug');
-      return;
-    }
+                                }}
+                                options={drugOptions}
+                                onSearch={fetchDrugs}
+                                placeholder="Search drug by name"
+                                filterOption={false}
+                            />
+                        </Form.Item>
 
-    const result = selectedDrugs.map((item) => ({
-      drug_id: item.drug.id,
-      qty: item.qty,
-    }));
+                        <Form.Item name="qty" label="Quantity" rules={[{ required: true }]}>
+                            <InputNumber min={1} style={{ width: '100%' }}
+                                onKeyPress={(e) => {
+                                    if (!/[0-9]/.test(e.key)) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                            />
+                        </Form.Item>
 
-    onSave(result);
-  };
+                        <Button type="dashed" onClick={handleAddDrug} block>
+                            Add Drug
+                        </Button>
+                    </Form>
 
-  return (
-    <Modal
-      title="Create Quotation"
-      open={open}
-      onCancel={onClose}
-      onOk={handleSubmit}
-      okText="Save"
-    >
-      <Form form={form} layout="vertical">
-        <Form.Item name="drug" label="Drug" rules={[{ required: true }]}>
-          <AutoComplete
-            options={drugOptions}
-            onSearch={fetchDrugs}
-            placeholder="Search drug by name"
-            filterOption={false}
-          />
-        </Form.Item>
+                    <div style={{ marginTop: 20 }}>
+                        <h4>Selected Drugs</h4>
 
-        <Form.Item name="qty" label="Quantity" rules={[{ required: true }]}>
-          <InputNumber min={1} style={{ width: '100%' }} />
-        </Form.Item>
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 100px 150px 80px',
+                                fontWeight: 'bold',
+                                padding: '6px 0',
+                                borderBottom: '2px solid #000',
+                            }}
+                        >
+                            <div>Drug</div>
+                            <div>Qty</div>
+                            <div>Amount</div>
+                            <div></div>
+                        </div>
 
-        <Button type="dashed" onClick={handleAddDrug} block>
-          Add Drug
-        </Button>
-      </Form>
+                        {selectedDrugs.map((item, idx) => (
+                            <div
+                                key={idx}
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 100px 150px 80px',
+                                    alignItems: 'center',
+                                    padding: '6px 0',
+                                    borderBottom: '1px solid #f0f0f0',
+                                }}
+                            >
+                                <div>{item.name}</div>
 
-      <div style={{ marginTop: 20 }}>
-        <h4>Selected Drugs</h4>
-        {selectedDrugs.map((item, idx) => (
-          <Space key={idx} style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <div>{item.drug.name}</div>
-            <div>Qty: {item.qty}</div>
-            <Button type="link" danger onClick={() =>
-              setSelectedDrugs(selectedDrugs.filter((_, i) => i !== idx))
-            }>
-              Remove
-            </Button>
-          </Space>
-        ))}
-      </div>
-    </Modal>
-  );
+                                <div>
+                                    {item.qty} x {item.unit_price}
+                                </div>
+                                <div>{item.total}</div>
+                                <Button
+                                    type="link"
+                                    danger
+                                    onClick={() => setSelectedDrugs(selectedDrugs.filter((_, i) => i !== idx))}
+                                >
+                                    Remove
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </Col>
+            </Row>
+        </Modal>
+    );
 };
 
 export default CreateQuotationModal;
