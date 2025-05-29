@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Modal, Form, Input, Upload, message, Select, TimePicker, Layout } from 'antd';
+import { Table, Tag, Button, Modal, Form, Input, Upload, message, Select, TimePicker, Layout, Image } from 'antd';
 import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 import dayjs from 'dayjs';
@@ -7,6 +7,7 @@ import MenuHeader from '../components/MenuHeader';
 import { Content } from 'antd/es/layout/layout';
 import Swal from 'sweetalert2';
 import QuotationViewModal from '../components/QuotationViewModal';
+import { IMG_BASE_URL } from '../utils/auth';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -70,6 +71,28 @@ const Prescription = () => {
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id' },
+      {
+      title: 'Images',
+      key: 'images',
+      render: (_, record) => {
+        const images = record.images || [];
+        if (images.length == 0) return <span>-</span>;
+
+        return (
+          <Image.PreviewGroup>
+          {images.map((img, index) => (
+            <Image
+              key={index}
+              src={`${IMG_BASE_URL}${img.image_path}`}
+              width={50}
+              height={50}
+              style={{ objectFit: 'cover', marginRight: 8, border: '1px solid #ddd' }}
+            />
+          ))}
+        </Image.PreviewGroup>
+        );
+      },
+    },
     { title: 'Delivery Address', dataIndex: 'delivery_address', key: 'delivery_address' },
     { title: 'Delivery Time Slot', dataIndex: 'delivery_time', key: 'delivery_time' },
     { title: 'Note', dataIndex: 'note', key: 'note' },
@@ -127,7 +150,7 @@ const Prescription = () => {
     try {
       const response = await api.put(`quotation/status-change`, { 'quotation_id': id, status });
 
-      if (response.data.success) {
+      if (response.data.status) {
         Swal.fire("Success", response.data.message, "success");
         setQuotationModalVisible(false);
         fetchPrescriptions();

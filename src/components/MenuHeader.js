@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, Menu, Button, Badge, message } from 'antd';
+import { Layout, Menu, Button, Badge, notification,Typography ,Dropdown, List } from 'antd';
 import { isAuthenticated, fetchUserType } from '../utils/auth';
 import api from '../utils/api';
 
 const { Header } = Layout;
+const { Text } = Typography;
 
 const MenuHeader = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userType, setUserType] = useState(null);
   const [notificationsCount, setNotificationsCount] = useState(0);
   const navigate = useNavigate();
+  const [lastNotificationIds, setLastNotificationIds] = useState([]);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     setIsLoggedIn(isAuthenticated());
@@ -23,7 +26,9 @@ const MenuHeader = () => {
   const handleAuthClick = () => {
     if (isLoggedIn) {
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('userType')
       setIsLoggedIn(false);
+      navigate('/');
       console.log('logged out');
     } else {
       navigate('/login');
@@ -31,25 +36,13 @@ const MenuHeader = () => {
   };
 
   const handleMenuClick = async ({ key }) => {
-
-    // const type = await fetchUserType();
     setUserType(userType);
-
-    if (key == 'logout') {
-      localStorage.removeItem('auth_token');
-      setUserType(null);
-      // message.success('Logged out successfully');
-      navigate('/');
-      return;
-    }
-
     const routes = {
       home: '/',
       prescription: '/prescriptions',
       quotation: '/quotations',
       login: '/login',
-      register: '/register',
-      notifications: '/notifications'
+      register: '/register'
     };
 
     if (routes[key]) {
@@ -57,27 +50,65 @@ const MenuHeader = () => {
     }
   };
 
+  const fetchNotifications = async () => {
+  try {
+    const res = await api.get('notification'); 
+    const notifications = res.data.data || []; 
+    setNotificationsCount(notifications.length);
+    setNotifications(notifications);
+
+    const newNotifs = notifications.filter(n => !lastNotificationIds.includes(n.id));
+
+    if (newNotifs.length > 0) {
+      newNotifs.forEach(n => {
+        notification.info({
+          message: 'New Notification',
+          description: n.data?.message || 'You have a new update',
+          placement: 'topRight',
+        });
+      });
+
+      setLastNotificationIds(notifications.map(n => n.id));
+    }
+  } catch (err) {
+    console.error('Failed to fetch notifications', err);
+  }
+};
+
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    // const fetchNotifications = async () => {
-    //   try {
-    //     const res = await api.get('/api/notifications/unread-count');
-    //     const data = await res.json();
-    //     setNotificationsCount(data.count || 0);
-    //   } catch (err) {
-    //     console.error('Failed to fetch notifications');
-    //   }
-    // };
 
-    // fetchNotifications();
-    // const interval = setInterval(fetchNotifications, 60000);
-    // return () => clearInterval(interval);
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
   }, [isLoggedIn]);
 
   const handleRegisterClick = () => {
     navigate('/register');
   };
+
+
+  const notificationMenu = (
+  <div style={{ width: 300, maxHeight: 400, overflowY: 'auto', padding: 10, backgroundColor:'white' }}>
+    {notifications.length > 0 ? (
+      <>
+        <List
+          dataSource={notifications}
+          renderItem={(item) => (
+            <List.Item key={item.id}>
+              <Text>{item.data?.message || 'New update'}</Text>
+            </List.Item>
+          )}
+        />
+       
+      </>
+    ) : (
+      <Text type="secondary">No new notifications</Text>
+    )}
+  </div>
+);
+
   return (
     <Header
       style={{
@@ -103,11 +134,7 @@ const MenuHeader = () => {
          {userType == 'pharmacy' && (
           <>
             <Menu.Item key="quotation">Quotation</Menu.Item>
-            <Menu.Item key="notifications">
-              <Badge count={notificationsCount} offset={[10, 0]}>
-                Notifications
-              </Badge>
-            </Menu.Item>
+            
           </>
         )}
       </Menu>
@@ -120,11 +147,23 @@ const MenuHeader = () => {
             </Button>
             <Button onClick={handleRegisterClick}>Register</Button>
           </>
-        ) : (
-          <Button type="primary" onClick={handleAuthClick}>
-            Logout
-          </Button>
-        )}
+        ) : (<>
+            <div style={{ cursor: 'pointer', marginRight:'15px' }}>
+             <Dropdown overlay={notificationMenu} trigger={['click']} placement="bottomRight">
+              <div style={{ cursor: 'pointer' }}>
+                <Badge count={notificationsCount} offset={[10, 0]}>
+                  <span style={{ color: '#fff' }}>Notifications</span>
+                </Badge>
+              </div>
+            </Dropdown>
+
+            </div>
+            <div>
+                <Button type="primary" key={'logout'} onClick={handleAuthClick}>
+                  Logout
+                </Button>
+            </div>
+        </>)}
       </div>
     </Header>
   );

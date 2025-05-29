@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Modal, Form, Input, Upload, message, Select, TimePicker, Layout } from 'antd';
+import { Table, Button, Modal, Form, Input, Upload, message, Select, TimePicker, Layout, Tag,Image } from 'antd';
 import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import api from '../utils/api';
 import dayjs from 'dayjs';
@@ -8,6 +8,7 @@ import { Content } from 'antd/es/layout/layout';
 import Swal from 'sweetalert2';
 import CreateQuotationModal from '../components/CreateQuotationModal';
 import QuotationViewModal from '../components/QuotationViewModal';
+import { IMG_BASE_URL } from '../utils/auth';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -105,7 +106,16 @@ const Quotation = () => {
       title: 'User Status',
       key: 'quotation',
       render: (_, record) => {
-        return <span>{record.quotation?.user_status ?? '-'}</span>;
+         if (record?.quotation?.user_status == 'pending') {
+              return <Tag color="green">Not yet</Tag>;
+          }
+          if (record?.quotation?.user_status == 'accept') {
+              return <Tag color="green">Accepted</Tag>;
+          }
+        
+          if (record?.quotation?.user_status == 'reject') {
+              return <Tag color="red">Rejected</Tag>;
+          }
       },
     },
   ];

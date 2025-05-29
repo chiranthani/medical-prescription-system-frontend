@@ -9,7 +9,7 @@ const CreateQuotationModal = ({ open, onClose, onSave, prescription }) => {
     const [drugOptions, setDrugOptions] = useState([]);
     const [selectedDrugs, setSelectedDrugs] = useState([]);
     const [drugLabel, setDrugLabel] = useState('');
-
+    const [loading, setLoading] = useState(false);
 
     const fetchDrugs = async (searchText) => {
         try {
@@ -70,13 +70,21 @@ const CreateQuotationModal = ({ open, onClose, onSave, prescription }) => {
         });
     };
 
-    const handleSubmit = () => {
+  const handleSubmit = async () => {
         if (selectedDrugs.length == 0) {
             Swal.fire("Warning", "Please add at least one drug", "warning");
             return;
         }
-        onSave(selectedDrugs);
-        setSelectedDrugs([]);
+       try {
+            setLoading(true);
+            await onSave(selectedDrugs);
+            setSelectedDrugs([]);
+            onClose(); 
+        } catch (err) {
+            Swal.fire("Error", "Failed to send quotation", "error");
+        } finally {
+            setLoading(false);
+        }
     };
 
 
@@ -86,8 +94,9 @@ const CreateQuotationModal = ({ open, onClose, onSave, prescription }) => {
             open={open}
             onCancel={onClose}
             onOk={handleSubmit}
-            okText="Save"
+            okText="Send Quotation"
             width={1000}
+            confirmLoading={loading}
         >
             <Row gutter={24}>
                 <Col span={12}>
