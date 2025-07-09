@@ -1,41 +1,5 @@
 Repository: chiranthani/medical-prescription-system-frontend
 
-Directory structure:
-└── chiranthani-medical-prescription-system-frontend/
-    ├── README.md
-    ├── package.json
-    ├── public/
-    │   ├── index.html
-    │   ├── manifest.json
-    │   └── robots.txt
-    └── src/
-        ├── App.css
-        ├── App.js
-        ├── App.test.js
-        ├── index.css
-        ├── index.js
-        ├── reportWebVitals.js
-        ├── setupTests.js
-        ├── components/
-        │   ├── CreateQuotationModal.js
-        │   ├── MenuHeader.js
-        │   ├── ProtectedRoute.js
-        │   └── QuotationViewModal.js
-        ├── pages/
-        │   ├── Home.js
-        │   ├── Login.js
-        │   ├── OTPVerification.js
-        │   ├── Prescription.js
-        │   ├── Quotation.js
-        │   └── Register.js
-        └── utils/
-            ├── api.js
-            └── auth.js
-
-
-================================================
-FILE: README.md
-================================================
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
